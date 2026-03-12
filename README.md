@@ -25,6 +25,11 @@ A full-stack property valuation and market analysis platform powered by a scikit
 cd house-price-api && python -m venv .venv && .venv/Scripts/activate && pip install -r requirements.txt
 cd property-estimator-api && python -m venv .venv && .venv/Scripts/activate && pip install -r requirements.txt
 
+# Java service
+cd market-analysis-api && mvn dependency:go-offline
+
+# Next.js portal
+cd nextjs-portal && npm install
 ```
 
 ## Running Locally
@@ -38,6 +43,11 @@ cd house-price-api && .venv/Scripts/activate && uvicorn app.main:app --port 8000
 # Terminal 2 — Property Estimator
 cd property-estimator-api && .venv/Scripts/activate && uvicorn app.main:app --port 8001 --reload
 
+# Terminal 3 — Market Analysis
+cd market-analysis-api && mvn spring-boot:run
+
+# Terminal 4 — Next.js Portal
+cd nextjs-portal && npm run dev
 ```
 
 Or use the Makefile:
@@ -45,14 +55,18 @@ Or use the Makefile:
 ```bash
 make ml         # Terminal 1
 make estimator  # Terminal 2
+make market     # Terminal 3
+make portal     # Terminal 4
 ```
 
 ## URLs
 
 | URL | Description |
 |---|---|
+| http://localhost:3000 | Main portal |
 | http://localhost:8000/docs | ML Model API (Swagger) |
 | http://localhost:8001/docs | Estimator API (Swagger) |
+| http://localhost:8080/api/market/stats | Market API |
 
 ## Apps
 
@@ -61,4 +75,7 @@ make estimator  # Terminal 2
 - View estimation history and compare properties side-by-side
 
 **App 2 — Property Market Analysis**
-
+- Market statistics dashboard with charts
+- Filterable and sortable property data table
+- What-if scenario analysis
+- Export data to CSV

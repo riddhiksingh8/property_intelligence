@@ -1,0 +1,47 @@
+services:
+  # ── Task 1: ML Model API ──────────────────────────────────────────────────
+  ml-model:
+    build: ./house-price-api
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ── App 1: Property Estimator (Python / FastAPI) ──────────────────────────
+  property-estimator:
+    build: ./property-estimator-api
+    ports:
+      - "8001:8001"
+    environment:
+      - ML_MODEL_URL=http://ml-model:8000
+    depends_on:
+      ml-model:
+        condition: service_healthy
+
+  # ── App 2: Market Analysis (Java / Spring Boot) ────────────────────────────
+  market-analysis:
+    build: ./market-analysis-api
+    ports:
+      - "8080:8080"
+    environment:
+      - ML_MODEL_URL=http://ml-model:8000
+    depends_on:
+      ml-model:
+        condition: service_healthy
+
+  # ── Next.js Portal ────────────────────────────────────────────────────────
+  nextjs-portal:
+    build:
+      context: ./nextjs-portal
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_ESTIMATOR_URL=http://localhost:8001
+      - NEXT_PUBLIC_MARKET_URL=http://localhost:8080
+    depends_on:
+      - property-estimator
+      - market-analysis
