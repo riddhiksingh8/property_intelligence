@@ -1,6 +1,8 @@
 # Property Intelligence Portal
 
-A full-stack AI-powered property valuation and market analysis platform built as a microservices architecture. The system combines a Machine Learning regression model, two independent backend services (Python and Java), and a unified Next.js frontend portal.
+A full-stack AI-powered property valuation and market analysis platform built as a microservices architecture. It integrates a Machine Learning regression model with two independent backend services (Python and Java) and a unified Next.js frontend portal.
+
+**GitHub:** https://github.com/riddhiksingh8/property_intelligence
 
 ---
 
@@ -8,6 +10,7 @@ A full-stack AI-powered property valuation and market analysis platform built as
 
 - [Project Overview](#project-overview)
 - [Architecture](#architecture)
+- [Repository Structure](#repository-structure)
 - [Services](#services)
 - [ML Model](#ml-model)
 - [API Endpoints](#api-endpoints)
@@ -20,12 +23,13 @@ A full-stack AI-powered property valuation and market analysis platform built as
 
 ## Project Overview
 
-The platform consists of two applications hosted inside a single Next.js portal:
+The platform hosts two independent applications inside a single Next.js portal:
 
-- **App 1 — Property Value Estimator**: Users input property details and receive an instant AI-generated price prediction. Estimates are stored in history and can be compared side-by-side.
-- **App 2 — Property Market Analysis**: An interactive dashboard showing market statistics, filterable property data, what-if scenario analysis, and data export options.
+- **App 1 — Property Value Estimator**: Users input 7 property features and receive an instant AI-generated price prediction. Results are stored in history and multiple properties can be compared side-by-side with charts.
 
-Both applications communicate with a central ML model service that runs a Linear Regression algorithm trained on a real estate dataset.
+- **App 2 — Property Market Analysis**: An interactive dashboard with market statistics, filterable/sortable property data tables, what-if scenario analysis, and CSV/PDF export.
+
+Both apps communicate with a central ML model service that runs a Linear Regression algorithm trained on a 50-property housing dataset achieving **R² = 0.98**.
 
 ---
 
@@ -52,6 +56,62 @@ Both applications communicate with a central ML model service that runs a Linear
 
 ---
 
+## Repository Structure
+
+```
+property_intelligence/
+├── house-price-api/          # ML model service (Python · FastAPI · scikit-learn)
+│   ├── app/
+│   │   ├── main.py           # FastAPI app + endpoints
+│   │   ├── model.py          # Linear Regression training & inference
+│   │   └── schemas.py        # Pydantic request/response models
+│   ├── data/
+│   │   └── House Price Dataset.csv
+│   ├── Dockerfile
+│   └── requirements.txt
+│
+├── property-estimator-api/   # App 1 backend (Python · FastAPI)
+│   ├── app/
+│   │   ├── main.py           # Estimate endpoint + in-memory history
+│   │   └── schemas.py
+│   ├── Dockerfile
+│   └── requirements.txt
+│
+├── market-analysis-api/      # App 2 backend (Java 21 · Spring Boot)
+│   └── src/main/java/com/deloitte/market/
+│       ├── MarketAnalysisApplication.java
+│       ├── controller/MarketController.java
+│       ├── service/
+│       │   ├── MarketService.java
+│       │   ├── HousingDataService.java
+│       │   └── MlModelClient.java
+│       ├── model/            # Java records (Property, MarketStats, etc.)
+│       └── config/           # CORS + RestTemplate config
+│   ├── Dockerfile
+│   └── pom.xml
+│
+├── nextjs-portal/            # Unified frontend (Next.js 15 · TypeScript · Tailwind)
+│   ├── app/
+│   │   ├── page.tsx          # Home / landing page
+│   │   ├── app1/page.tsx     # Property Value Estimator
+│   │   ├── app1/compare/     # Side-by-side comparison
+│   │   ├── app2/page.tsx     # Market Analysis dashboard
+│   │   └── app2/what-if/     # What-if scenario tool
+│   ├── components/
+│   │   ├── Navbar.tsx
+│   │   ├── app1/             # EstimatorForm, PredictionResult, HistoryTable
+│   │   └── app2/             # StatsCards, PriceCharts, PropertyTable, WhatIfTool
+│   └── lib/
+│       ├── api.ts            # API client wrappers
+│       └── types.ts          # TypeScript interfaces
+│
+├── docker-compose.yml        # Orchestrates all 4 services
+├── Makefile                  # Shortcut commands
+└── README.md
+```
+
+---
+
 ## Services
 
 | Service | Technology | Port | Role |
@@ -67,7 +127,7 @@ Both applications communicate with a central ML model service that runs a Linear
 
 **Algorithm:** Linear Regression (scikit-learn)
 
-**Input Features (7):**
+**Input Features:**
 
 | Feature | Description |
 |---|---|
@@ -79,29 +139,32 @@ Both applications communicate with a central ML model service that runs a Linear
 | `distance_to_city_center` | Distance to city center in miles |
 | `school_rating` | School district quality rating (0–10) |
 
-**Target:** `price` — predicted house price in USD
+**Performance (20% holdout test set):**
 
-**Performance (on 20% holdout test set):**
-- R² Score: **0.98** (98% variance explained)
-- MAE: ~$7,916
-- RMSE: ~$10,277
+| Metric | Value |
+|---|---|
+| R² Score | 0.98 |
+| MAE | ~$7,916 |
+| RMSE | ~$10,277 |
+| Training samples | 40 |
+| Test samples | 10 |
 
-The model is trained automatically every time the service starts. Features are normalized using `StandardScaler` before training.
+Features are normalized with `StandardScaler` before training. The model trains automatically on every service startup.
 
 ---
 
 ## API Endpoints
 
-### house-price-api (ML Model) — :8000
+### house-price-api — :8000 · [Swagger](http://localhost:8000/docs)
 
 | Method | Endpoint | Description |
 |---|---|---|
 | GET | `/health` | Health check |
-| POST | `/predict` | Predict price for a single property |
-| POST | `/predict/batch` | Predict prices for multiple properties |
-| GET | `/model-info` | Model coefficients and performance metrics |
+| POST | `/predict` | Single property price prediction |
+| POST | `/predict/batch` | Batch price predictions |
+| GET | `/model-info` | Coefficients and performance metrics |
 
-### property-estimator-api — :8001
+### property-estimator-api — :8001 · [Swagger](http://localhost:8001/docs)
 
 | Method | Endpoint | Description |
 |---|---|---|
@@ -117,47 +180,44 @@ The model is trained automatically every time the service starts. Features are n
 |---|---|---|
 | GET | `/api/market/health` | Health check |
 | GET | `/api/market/stats` | Market statistics (avg price, by bedrooms, by decade) |
-| GET | `/api/market/properties` | List properties with filtering and sorting |
-| POST | `/api/market/what-if` | Predict price for a hypothetical property |
+| GET | `/api/market/properties` | List with optional filters: `bedrooms`, `minYear`, `maxYear`, `minPrice`, `maxPrice`, `sort`, `order` |
+| POST | `/api/market/what-if` | Predict price for custom property features |
 | GET | `/api/market/export/csv` | Download full dataset as CSV |
 
 ---
 
 ## Prerequisites
 
-### Local
+### For Local Development
 
-| Tool | Version | Install |
+| Tool | Version | How to Install |
 |---|---|---|
 | Python | 3.12+ | https://python.org |
 | Java JDK | 21 | `winget install EclipseAdoptium.Temurin.21.JDK` |
-| Maven | 3.9+ | https://maven.apache.org/download.cgi → extract to `C:\maven` |
+| Maven | 3.9+ | Download zip from https://maven.apache.org → extract to `C:\maven` |
 | Node.js | 22+ | https://nodejs.org |
 
-Add Maven to PATH after extracting:
+After extracting Maven, add it to PATH (run PowerShell as Administrator):
 ```powershell
-# Run as Administrator
 [System.Environment]::SetEnvironmentVariable("PATH", $env:PATH + ";C:\maven\bin", "Machine")
 ```
 
-### Docker
+### For Docker
 
-| Tool | Version |
-|---|---|
-| Docker Desktop | Latest (requires virtualization enabled in BIOS) |
+- Docker Desktop with virtualization enabled in BIOS
 
 ---
 
 ## Local Setup & Testing
 
-### Step 1 — Clone and enter the project
+### 1. Clone the repository
 
 ```bash
-git clone <repo-url>
-cd deloitte
+git clone https://github.com/riddhiksingh8/property_intelligence.git
+cd property_intelligence
 ```
 
-### Step 2 — Set up Python virtual environments
+### 2. Set up Python virtual environments
 
 ```bash
 # ML Model API
@@ -175,7 +235,7 @@ pip install -r requirements.txt
 cd ..
 ```
 
-### Step 3 — Install Java dependencies
+### 3. Install Java dependencies
 
 ```bash
 cd market-analysis-api
@@ -183,7 +243,7 @@ mvn dependency:go-offline
 cd ..
 ```
 
-### Step 4 — Install Next.js dependencies
+### 4. Install Next.js dependencies
 
 ```bash
 cd nextjs-portal
@@ -191,9 +251,11 @@ npm install
 cd ..
 ```
 
-### Step 5 — Start all services (4 terminals, in this order)
+### 5. Start all services
 
-**Terminal 1 — ML Model API (start this first)**
+Open **4 separate terminals** in the project root and run one command per terminal **in this order**:
+
+**Terminal 1 — ML Model API (must start first)**
 ```bash
 cd house-price-api
 .venv\Scripts\activate
@@ -220,7 +282,7 @@ cd nextjs-portal
 npm run dev
 ```
 
-Or use the Makefile shortcuts (Git Bash only):
+Or use Makefile shortcuts (Git Bash):
 ```bash
 make ml        # Terminal 1
 make estimator # Terminal 2
@@ -228,40 +290,40 @@ make market    # Terminal 3
 make portal    # Terminal 4
 ```
 
-### Step 6 — Verify all services are running
+### 6. Verify everything is running
 
 ```bash
-curl http://localhost:8000/health   # {"status":"healthy","model_trained":true,...}
-curl http://localhost:8001/health   # {"status":"healthy",...}
-curl http://localhost:8080/api/market/health  # {"status":"healthy",...}
-curl http://localhost:3000          # Next.js portal HTML
+curl http://localhost:8000/health
+curl http://localhost:8001/health
+curl http://localhost:8080/api/market/health
 ```
 
-### Local URLs
+All should return `{"status":"healthy",...}`
+
+### 7. Local URLs
 
 | URL | Description |
 |---|---|
-| http://localhost:3000 | Main portal (start here) |
+| http://localhost:3000 | Main portal |
 | http://localhost:3000/app1 | Property Value Estimator |
-| http://localhost:3000/app2 | Property Market Analysis |
+| http://localhost:3000/app2 | Market Analysis Dashboard |
 | http://localhost:8000/docs | ML Model API — Swagger UI |
 | http://localhost:8001/docs | Estimator API — Swagger UI |
-| http://localhost:8080/api/market/stats | Market stats JSON |
 
-### Test a prediction manually
+### 8. Quick API test
 
 ```bash
-# Single prediction via ML Model
+# Predict a house price directly via ML model
 curl -X POST http://localhost:8000/predict \
   -H "Content-Type: application/json" \
   -d "{\"square_footage\":1850,\"bedrooms\":3,\"bathrooms\":2,\"year_built\":1998,\"lot_size\":7500,\"distance_to_city_center\":5.6,\"school_rating\":8.2}"
 
-# Via Estimator (stores in history)
+# Submit an estimate (stored in history)
 curl -X POST http://localhost:8001/estimate \
   -H "Content-Type: application/json" \
   -d "{\"label\":\"Test House\",\"square_footage\":1850,\"bedrooms\":3,\"bathrooms\":2,\"year_built\":1998,\"lot_size\":7500,\"distance_to_city_center\":5.6,\"school_rating\":8.2}"
 
-# Market stats
+# Get market stats
 curl http://localhost:8080/api/market/stats
 ```
 
@@ -269,33 +331,39 @@ curl http://localhost:8080/api/market/stats
 
 ## Docker Setup & Testing
 
-> **Requires:** Docker Desktop running with virtualization enabled in BIOS.
+> Requires Docker Desktop running with virtualization enabled in BIOS.
 
-### Step 1 — Start all services with one command
+### 1. Clone the repository
 
 ```bash
-cd deloitte
+git clone https://github.com/riddhiksingh8/property_intelligence.git
+cd property_intelligence
+```
+
+### 2. Build and start all services
+
+```bash
 docker-compose up --build
 ```
 
-This builds and starts all 4 services automatically. First build takes ~5–10 minutes.
+First build takes ~5–10 minutes (downloads base images and dependencies). Subsequent starts are fast.
 
-### Step 2 — Verify containers are running
+### 3. Verify containers are running
 
 ```bash
 docker-compose ps
 ```
 
-Expected output:
+Expected:
 ```
-NAME                    STATUS          PORTS
-ml-model                Up              0.0.0.0:8000->8000/tcp
-property-estimator      Up              0.0.0.0:8001->8001/tcp
-market-analysis         Up              0.0.0.0:8080->8080/tcp
-nextjs-portal           Up              0.0.0.0:3000->3000/tcp
+NAME                    STATUS    PORTS
+ml-model                Up        0.0.0.0:8000->8000/tcp
+property-estimator      Up        0.0.0.0:8001->8001/tcp
+market-analysis         Up        0.0.0.0:8080->8080/tcp
+nextjs-portal           Up        0.0.0.0:3000->3000/tcp
 ```
 
-### Step 3 — Open the portal
+### 4. Open the portal
 
 ```
 http://localhost:3000
@@ -304,10 +372,10 @@ http://localhost:3000
 ### Useful Docker commands
 
 ```bash
-# Start in background
+# Run in background
 docker-compose up --build -d
 
-# View logs for a specific service
+# View logs
 docker-compose logs -f ml-model
 docker-compose logs -f market-analysis
 
@@ -317,18 +385,9 @@ docker-compose down
 # Rebuild a single service
 docker-compose up --build market-analysis
 
-# Run a one-off test against the ML model
-docker-compose exec ml-model curl http://localhost:8000/health
+# Shell into a container
+docker-compose exec ml-model bash
 ```
-
-### Docker URLs (same as local)
-
-| URL | Description |
-|---|---|
-| http://localhost:3000 | Main portal |
-| http://localhost:8000/docs | ML Model Swagger UI |
-| http://localhost:8001/docs | Estimator Swagger UI |
-| http://localhost:8080/api/market/stats | Market stats |
 
 ---
 
@@ -336,21 +395,17 @@ docker-compose exec ml-model curl http://localhost:8000/health
 
 ### App 1 — Property Value Estimator
 
-1. Navigate to http://localhost:3000/app1
-2. Fill in the 7 property fields (square footage, bedrooms, etc.)
-3. Optionally add a label (e.g. "Dream Home")
-4. Click **Get Estimate** → predicted price appears instantly
-5. Submit multiple estimates → they appear in the **History** table below
-6. Check 2+ estimates → click **Compare** to see a side-by-side comparison with charts
+1. Go to http://localhost:3000/app1
+2. Fill in the 7 property fields and optionally add a label
+3. Click **Get Estimate** — predicted price appears with a feature breakdown chart
+4. Submit more estimates — they appear in the **History** table
+5. Check 2 or more estimates → click **Compare** for a side-by-side view with grouped bar charts
 
 ### App 2 — Property Market Analysis
 
-1. Navigate to http://localhost:3000/app2
-2. The dashboard loads with:
-   - Key stats (avg price, min/max, school rating)
-   - Bar charts (price by bedrooms, price by decade built)
-   - Full property table (50 records)
-3. Use the filter row above the table to filter by bedrooms, year, or price range
-4. Click column headers to sort
-5. Click **Export CSV** to download the dataset
-6. Click **What-If Analysis** → adjust any property feature → see predicted price vs. market average in real time
+1. Go to http://localhost:3000/app2
+2. View the stats dashboard — average price, min/max, school rating, charts by bedrooms and decade
+3. Use the filter row to narrow down properties by bedrooms, year range, or price range
+4. Click column headers to sort the table
+5. Click **Export CSV** to download the full dataset
+6. Click **What-If Analysis** → adjust any feature slider → see the predicted price update in real time vs. the dataset average
